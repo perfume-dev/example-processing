@@ -1,9 +1,7 @@
 
 BvhParser parserA = new BvhParser();
 PBvh bvh1, bvh2, bvh3;
-
-
-void setup()
+public void setup()
 {
   size( 1280, 720, P3D );
   background( 0 );
@@ -17,11 +15,10 @@ void setup()
   loop();
 }
 
-void draw()
+public void draw()
 {
   background( 0 );
-  camera(mouseX, mouseY, 100, width/2.0, height/2.0, 0, 0, 1, 0);
-    
+  camera((float) mouseX, (float) mouseY, 100.f, (float) (width/2.f), (float) (height/2.f), 0.f, 0.f, 1.f, 0.f);
   pushMatrix();
   translate( width/2, height/2 + 100, 0);
   scale(-1, -1, -1);

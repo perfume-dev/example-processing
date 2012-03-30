@@ -1,9 +1,7 @@
-
-
 public class PBvh
 {
-  
-  public BvhParser parser;  
+  public BvhParser parser;
+  private PApplet app;  
   
   public PBvh(String[] data)
   {
@@ -18,12 +16,13 @@ public class PBvh
 
     BvhBone root = parser.getBones().get(0);
 
-    pushMatrix();
-    drawBone(root);
-    popMatrix();
+//    pushMatrix();
+    update(root);
+    draw();
+//    popMatrix();
   }
 
-  protected void drawBone(BvhBone bone)
+  protected void update(BvhBone bone )
   {
     pushMatrix();
 
@@ -31,28 +30,53 @@ public class PBvh
 
     m.translate(bone.getXposition(), bone.getYposition(), bone.getZposition());
     m.translate(bone.getOffsetX(), bone.getOffsetY(), bone.getOffsetZ());
-
-    m.rotateY(radians(bone.getYrotation()));
-    m.rotateX(radians(bone.getXrotation()));
-    m.rotateZ(radians(bone.getZrotation()));
-
+    
+    m.rotateY(PApplet.radians(bone.getYrotation()));
+    m.rotateX(PApplet.radians(bone.getXrotation()));
+    m.rotateZ(PApplet.radians(bone.getZrotation()));
+    
+    bone.global_matrix = m;
     applyMatrix(m);
 
-    sphere( 2 );
-
+    if (bone.getParent() != null && bone.getParent().global_matrix != null)
+      m.preApply(bone.getParent().global_matrix);
+    m.mult(new PVector(), bone.getAbsPosition());
+    
     if (bone.getChildren().size() > 0)
     {
       for (BvhBone child : bone.getChildren())
       {
-        drawBone(child);
+        update(child);
       }
     }
     else
     {
       translate(bone.getEndOffsetX(), bone.getEndOffsetY(), bone.getEndOffsetZ());
-      sphere( 2 );
+      m.translate(bone.getEndOffsetX(), bone.getEndOffsetY(), bone.getEndOffsetZ());
+      m.mult(new PVector(), bone.getAbsEndPosition());
     }
 
     popMatrix();
+  }
+  
+  protected void draw()
+  {
+    fill(color(255));
+    
+    for( BvhBone b : parser.getBones())
+    {
+      pushMatrix();
+      translate( b.absPos.x, b.absPos.y, b.absPos.z);
+      sphere(2);
+      popMatrix();
+      if (!b.hasChildren())
+      {
+        pushMatrix();
+        translate( b.absEndPos.x, b.absEndPos.y, b.absEndPos.z);
+        sphere(2);
+        popMatrix();
+      }
+        
+    }
   }
 }
