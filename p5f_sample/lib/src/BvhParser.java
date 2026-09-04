@@ -1,6 +1,5 @@
 package com.rhizomatiks.bvh;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -10,15 +9,13 @@ import processing.core.PVector;
 
 public class BvhParser {
 
-  private Boolean _motionLoop;
+  private boolean _motionLoop;
   
   private int _currentFrame = 0;
   
   private List<BvhLine> _lines;
   
   private int _currentLine;
-  private BvhBone _currentBone;
-  
   private BvhBone _rootBone;
   private List<List<Float>> _frames;
   private int _nbFrames;
@@ -28,7 +25,7 @@ public class BvhParser {
   
   public BvhParser()
   {
-    _motionLoop = true;
+    init();
   }
 
   /**
@@ -45,6 +42,15 @@ public class BvhParser {
    */
   public void setMotionLoop(Boolean value)
   {
+    _motionLoop = Boolean.TRUE.equals(value);
+  }
+
+  /**
+   * set Loop state
+   * @param value
+   */
+  public void setMotionLoop(boolean value)
+  {
     _motionLoop = value;
   }
 
@@ -54,7 +60,7 @@ public class BvhParser {
    */
   public String toStr()
   {
-	return _rootBone.structureToString();
+    return _rootBone.structureToString();
   }
   
   /**
@@ -64,6 +70,22 @@ public class BvhParser {
   public int getNbFrames()
   {
     return _nbFrames;
+  }
+
+  /**
+   * get the currently selected frame
+   */
+  public int getCurrentFrame()
+  {
+    return _currentFrame;
+  }
+
+  /**
+   * get the duration of one frame in seconds
+   */
+  public float getFrameTime()
+  {
+    return _frameTime;
   }
 
   /**
@@ -83,7 +105,13 @@ public class BvhParser {
    */
   public void init()
   {
+    _currentFrame = 0;
+    _lines = new ArrayList<BvhLine>();
+    _frames = new ArrayList<List<Float>>();
     _bones = new ArrayList<BvhBone>();
+    _nbFrames = 0;
+    _frameTime = 0;
+    _rootBone = null;
     _motionLoop = true;
   }
   
@@ -92,14 +120,12 @@ public class BvhParser {
    */
   public void moveFrameTo(int __index)
   {
-    if(!_motionLoop)
-    {
-      if(__index >= _nbFrames)
-        _currentFrame = _nbFrames-1;//last frame
-    }else{
-      while (__index >= _nbFrames)
-        __index -= _nbFrames;      
-      _currentFrame = __index; //looped frame
+    ensureMotionData();
+
+    if (_motionLoop) {
+      _currentFrame = Math.floorMod(__index, _nbFrames);
+    } else {
+      _currentFrame = Math.max(0, Math.min(__index, _nbFrames - 1));
     }
     _updateFrame();
   }
@@ -107,13 +133,13 @@ public class BvhParser {
   /**
    * go to millisecond of the BVH
    * @param mills millisecond
-   * @param loopSec the default loopsec for 
    */
   public void moveMsTo( int mills )
   {
-    float frameTime = _frameTime * 1000;
-    int curFrame = (int)(mills / frameTime); 
-    moveFrameTo( curFrame ); 
+    ensureMotionData();
+    float frameTimeMs = _frameTime * 1000;
+    int curFrame = (int)Math.floor(mills / frameTimeMs);
+    moveFrameTo(curFrame);
   }
   
   /**
@@ -121,149 +147,165 @@ public class BvhParser {
    */
   public void update()
   {
-	  update( getBones().get(0) );
+    if (_rootBone == null) {
+      throw new IllegalStateException("Parse BVH data before updating it");
+    }
+    update(_rootBone);
   }
   
   protected void update(BvhBone bone )
   {
+    PMatrix3D m = new PMatrix3D();
 
-	    PMatrix3D m = new PMatrix3D();
+    m.translate(bone.getXposition(), bone.getYposition(), bone.getZposition());
+    m.translate(bone.getOffsetX(), bone.getOffsetY(), bone.getOffsetZ());
 
-	    m.translate(bone.getXposition(), bone.getYposition(), bone.getZposition());
-	    m.translate(bone.getOffsetX(), bone.getOffsetY(), bone.getOffsetZ());
-	    
-	    m.rotateY(PApplet.radians(bone.getYrotation()));
-	    m.rotateX(PApplet.radians(bone.getXrotation()));
-	    m.rotateZ(PApplet.radians(bone.getZrotation()));
-	    
-	    bone.global_matrix = m;
+    m.rotateY(PApplet.radians(bone.getYrotation()));
+    m.rotateX(PApplet.radians(bone.getXrotation()));
+    m.rotateZ(PApplet.radians(bone.getZrotation()));
 
-	    if (bone.getParent() != null && bone.getParent().global_matrix != null)
-	      m.preApply(bone.getParent().global_matrix);
-	    m.mult(new PVector(), bone.getAbsPosition());
-	    
-	    if (bone.getChildren().size() > 0)
-	    {
-	      for (BvhBone child : bone.getChildren())
-	      {
-	        update(child);
-	      }
-	    }
-	    else
-	    {
-	      m.translate(bone.getEndOffsetX(), bone.getEndOffsetY(), bone.getEndOffsetZ());
-	      m.mult(new PVector(), bone.getAbsEndPosition());
-	    }
+    bone.global_matrix = m;
+
+    if (bone.getParent() != null && bone.getParent().global_matrix != null) {
+      m.preApply(bone.getParent().global_matrix);
+    }
+    m.mult(new PVector(), bone.getAbsPosition());
+
+    if (bone.hasChildren()) {
+      for (BvhBone child : bone.getChildren()) {
+        update(child);
+      }
+    } else {
+      m.translate(bone.getEndOffsetX(), bone.getEndOffsetY(), bone.getEndOffsetZ());
+      m.mult(new PVector(), bone.getAbsEndPosition());
+    }
   }
   
   
   private void _updateFrame()
   {
-    if (_currentFrame >= _frames.size()) return;
+    if (_currentFrame >= _frames.size()) {
+      throw new IllegalStateException("Frame data is shorter than the declared frame count");
+    }
     List<Float> frame = _frames.get(_currentFrame);
-    int count = 0;
-    for (float n : frame)
-    {
-      BvhBone bone = _getBoneInFrameAt(count);
-      String prop = _getBonePropInFrameAt(count);
-      if(bone != null) {
-        Method getterMethod;
-        try {
-          getterMethod = bone.getClass().getDeclaredMethod("set".concat(prop), new Class[]{float.class});
-          getterMethod.invoke(bone, n);
-        } catch (SecurityException e) {
-          e.printStackTrace();
-          System.err.println("ERROR WHILST GETTING FRAME - 1");
-        } catch (NoSuchMethodException e) {
-          e.printStackTrace();
-          System.err.println("ERROR WHILST GETTING FRAME - 2");
-        } catch (IllegalArgumentException e) {
-          e.printStackTrace();
-          System.err.println("ERROR WHILST GETTING FRAME - 3");
-        } catch (IllegalAccessException e) {
-          e.printStackTrace();
-          System.err.println("ERROR WHILST GETTING FRAME - 4");
-        } catch (InvocationTargetException e) {
-          e.printStackTrace();
-          System.err.println("ERROR WHILST GETTING FRAME - 5");
-        }
-      }
-      count++;
-    }      
-  }    
-  
-  private String _getBonePropInFrameAt(int n)
-  {
-    int c = 0;      
-    for (BvhBone bone : _bones)
-    {
-      if (c + bone.getNbChannels() > n)
-      {
-        n -= c;
-        return bone.getChannels().get(n);
-      }else{
-        c += bone.getNbChannels();  
+    int expectedValues = getChannelCount();
+    if (frame.size() != expectedValues) {
+      throw new IllegalStateException(
+          "Frame " + _currentFrame + " has " + frame.size()
+              + " values; expected " + expectedValues);
+    }
+
+    int valueIndex = 0;
+    for (BvhBone bone : _bones) {
+      for (String channel : bone.getChannels()) {
+        applyChannel(bone, channel, frame.get(valueIndex));
+        valueIndex++;
       }
     }
-    return null;
   }
-  
-  private BvhBone _getBoneInFrameAt( int n)
+
+  private void applyChannel(BvhBone bone, String channel, float value)
   {
-    int c = 0;      
-    for (BvhBone bone : _bones)
-    {
-      c += bone.getNbChannels();
-      if ( c > n )
-        return bone;
+    switch (channel) {
+      case "Xposition": bone.setXposition(value); break;
+      case "Yposition": bone.setYposition(value); break;
+      case "Zposition": bone.setZposition(value); break;
+      case "Xrotation": bone.setXrotation(value); break;
+      case "Yrotation": bone.setYrotation(value); break;
+      case "Zrotation": bone.setZrotation(value); break;
+      default:
+        throw new IllegalArgumentException("Unsupported BVH channel: " + channel);
     }
-    return null;
-  }    
+  }
+
+  private int getChannelCount()
+  {
+    int count = 0;
+    for (BvhBone bone : _bones) {
+      count += bone.getNbChannels();
+    }
+    return count;
+  }
   
   public void parse(String[] srces)
   {
-    String[] linesStr = srces;
-    // liste de BvhLines
-    _lines = new ArrayList<BvhLine>();
-    
-    for ( String lineStr : linesStr)
-      _lines.add(new BvhLine(lineStr));
-      
+    if (srces == null || srces.length < 2) {
+      throw new IllegalArgumentException("BVH data is empty or incomplete");
+    }
+
+    boolean motionLoop = _motionLoop;
+    init();
+    _motionLoop = motionLoop;
+    for (String lineStr : srces) {
+      if (lineStr != null && !lineStr.trim().isEmpty()) {
+        _lines.add(new BvhLine(lineStr));
+      }
+    }
+
+    if (_lines.size() < 2 || !BvhLine.HIERARCHY.equals(_lines.get(0).getLineType())
+        || !BvhLine.BONE.equals(_lines.get(1).getLineType())) {
+      throw new IllegalArgumentException("BVH data must start with HIERARCHY and ROOT");
+    }
+
     _currentLine = 1;
-    _rootBone = _parseBone();
-    
-    // center locs
-    //_rootBone.offsetX = _rootBone.offsetY = _rootBone.offsetZ = 0; 
-    
+    try {
+      _rootBone = _parseBone();
+    } catch (IndexOutOfBoundsException e) {
+      throw new IllegalArgumentException("BVH hierarchy is incomplete", e);
+    }
     _parseFrames();
-  }    
+    ensureMotionData();
+    _updateFrame();
+  }
   
   private void _parseFrames()
   {
     int currentLine = _currentLine;
     for (; currentLine < _lines.size(); currentLine++)
-      if(_lines.get(currentLine).getLineType() == BvhLine.MOTION) break; 
+      if (BvhLine.MOTION.equals(_lines.get(currentLine).getLineType())) break;
 
-    if ( _lines.size() > currentLine) 
-    {
-      currentLine++; //Frames
-      _nbFrames = _lines.get(currentLine).getNbFrames();
-      currentLine++; //FrameTime
-      _frameTime = _lines.get(currentLine).getFrameTime();
-      currentLine++;
-  
-      _frames = new ArrayList<List<Float>>();
-      for (; currentLine < _lines.size(); currentLine++)
-      {
-        _frames.add(_lines.get(currentLine).getFrames());
+    if (currentLine >= _lines.size()) {
+      throw new IllegalArgumentException("BVH data does not contain a MOTION section");
+    }
+
+    currentLine++;
+    if (currentLine >= _lines.size()
+        || !BvhLine.FRAMES.equals(_lines.get(currentLine).getLineType())) {
+      throw new IllegalArgumentException("BVH MOTION section is missing Frames");
+    }
+    _nbFrames = _lines.get(currentLine).getNbFrames();
+
+    currentLine++;
+    if (currentLine >= _lines.size()
+        || !BvhLine.FRAME_TIME.equals(_lines.get(currentLine).getLineType())) {
+      throw new IllegalArgumentException("BVH MOTION section is missing Frame Time");
+    }
+    _frameTime = _lines.get(currentLine).getFrameTime();
+
+    currentLine++;
+    for (; currentLine < _lines.size(); currentLine++) {
+      if (!BvhLine.FRAME.equals(_lines.get(currentLine).getLineType())) {
+        throw new IllegalArgumentException("Unexpected line in BVH frame data");
       }
+      _frames.add(_lines.get(currentLine).getFrames());
+    }
+
+    if (_frames.size() != _nbFrames) {
+      throw new IllegalArgumentException(
+          "BVH declares " + _nbFrames + " frames but contains " + _frames.size());
+    }
+  }
+
+  private void ensureMotionData()
+  {
+    if (_nbFrames <= 0 || _frameTime <= 0 || _frames.isEmpty()) {
+      throw new IllegalStateException("Parse valid BVH motion data before selecting a frame");
     }
   }
   
   private BvhBone _parseBone()
   {
-    //_currentBone is Parent
-    BvhBone bone = new BvhBone( _currentBone );
+    BvhBone bone = new BvhBone();
     
     _bones.add(bone);
     
@@ -309,8 +351,7 @@ public class BvhParser {
       }
       _currentLine++;
     }
-    System.out.println("//Something strage");
-    return bone;  
+    throw new IllegalArgumentException("Unexpected end of BVH hierarchy near " + bone.getName());
   }    
   
   private class BvhLine
@@ -355,13 +396,8 @@ public class BvhParser {
     
     private void _parse(String __lineStr)
     {
-      _lineStr = __lineStr;
-      _lineStr = _lineStr.trim();
-      _lineStr = _lineStr.replace("\t", "");
-      _lineStr = _lineStr.replace("\n", "");
-      _lineStr = _lineStr.replace("\r", "");  
-      
-      String[] words = _lineStr.split(" ");
+      _lineStr = __lineStr.trim();
+      String[] words = _lineStr.split("\\s+");
     
       _lineType = _parseLineType(words);
       
@@ -370,7 +406,7 @@ public class BvhParser {
       {
         return;
       } else if ( BONE.equals(_lineType) ) {
-          _boneType = (words[0] == "ROOT") ? BONE_TYPE_ROOT : BONE_TYPE_JOINT;
+          _boneType = ("ROOT".equals(words[0])) ? BONE_TYPE_ROOT : BONE_TYPE_JOINT;
           _boneName = words[1];
           return;
       } else if ( OFFSET.equals(_lineType) ) {
@@ -428,12 +464,11 @@ public class BvhParser {
         return FRAME_TIME;
     
       try {
-        Float.parseFloat(__words[0]); //check is Parsable
+        Float.parseFloat(__words[0]); // Check whether the line starts with a frame value.
         return FRAME;  
       } catch ( NumberFormatException e) {
-        e.printStackTrace();
+        throw new IllegalArgumentException("Unsupported BVH line: " + _lineStr, e);
       }
-      return null;
     }
   
     

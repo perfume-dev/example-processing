@@ -1,38 +1,35 @@
-public class PBvh
-{
-  public BvhParser parser;  
+class PBvh {
+  final BvhParser parser;
 
-  public PBvh(String[] data)
-  {
+  PBvh(String[] data) {
+    if (data == null) {
+      throw new IllegalArgumentException("BVH data could not be loaded");
+    }
+
     parser = new BvhParser();
-    parser.init();
-    parser.parse( data );
+    parser.parse(data);
   }
-  
-  public void update( int ms )
-  {
-    parser.moveMsTo( ms );//30-sec loop 
+
+  void update(int ms) {
+    parser.moveMsTo(ms);
     parser.update();
   }
-  
-  public void draw()
-  {
-    fill(color(255));
-    
-    for( BvhBone b : parser.getBones())
-    {
+
+  void draw() {
+    fill(255);
+
+    for (BvhBone bone : parser.getBones()) {
       pushMatrix();
-      translate(b.absPos.x, b.absPos.y, b.absPos.z);
+      translate(bone.absPos.x, bone.absPos.y, bone.absPos.z);
       ellipse(0, 0, 2, 2);
       popMatrix();
-      if (!b.hasChildren())
-      {
+
+      if (!bone.hasChildren()) {
         pushMatrix();
-        translate( b.absEndPos.x, b.absEndPos.y, b.absEndPos.z);
+        translate(bone.absEndPos.x, bone.absEndPos.y, bone.absEndPos.z);
         ellipse(0, 0, 10, 10);
         popMatrix();
       }
-        
     }
   }
 }
