@@ -1,72 +1,67 @@
 import com.rhizomatiks.bvh.BvhBone;
 import com.rhizomatiks.bvh.BvhParser;
+import java.util.List;
+import java.util.ArrayList;
 
-PBvh bvh1;
-PBvh bvh2;
-PBvh bvh3;
-boolean smokeTest;
+final List<PBvh> dancers = new ArrayList<>();
+SketchRun run;
+boolean showHelp = true;
+float orbit = 0;
 
 void settings() {
-  size(1280, 720, P3D);
+  size(1280, 800, P3D);
+  pixelDensity(1);
+  smooth(4);
 }
 
 void setup() {
-  background(0);
-  noStroke();
-  frameRate(30);
-
-  smokeTest = false;
-  if (args != null) {
-    for (String arg : args) {
-      smokeTest |= "--smoke-test".equals(arg);
-    }
-  }
-
-  bvh1 = new PBvh(loadStrings("A_test.bvh"));
-  bvh2 = new PBvh(loadStrings("B_test.bvh"));
-  bvh3 = new PBvh(loadStrings("C_test.bvh"));
+  surface.setTitle("Perfume / point skeletons");
+  surface.setResizable(true);
+  frameRate(60);
+  run = new SketchRun();
+  showHelp = !run.automated;
+  int[] palette = { color(110, 224, 219), color(255, 142, 124), color(238, 232, 210) };
+  String[] files = { "A_test.bvh", "B_test.bvh", "C_test.bvh" };
+  for (int i = 0; i < files.length; i++) dancers.add(new PBvh(loadStrings(files[i]), palette[i]));
+  textFont(createFont("SansSerif", 13));
 }
 
 void draw() {
-  background(0);
-
-  // Camera
-  float orbitCos = cos(millis() / 5000.0f);
-  float orbitSin = sin(millis() / 5000.0f);
-  camera(
-    width / 4.0f + width / 4.0f * orbitCos + 200,
-    height / 2.0f - 100,
-    550 + 150 * orbitSin,
-    width / 2.0f,
-    height / 2.0f,
-    -400,
-    0,
-    1,
-    0
-  );
-
-  // Ground
-  fill(255);
-  stroke(127);
-  line(width / 2.0f, height / 2.0f, -30, width / 2.0f, height / 2.0f, 30);
-  line(width / 2.0f - 30, height / 2.0f, 0, width / 2.0f + 30, height / 2.0f, 0);
-  stroke(255);
-
-  pushMatrix();
-  translate(width / 2.0f, height / 2.0f - 10, 0);
-  scale(-1, -1, -1);
-
-  // Models
-  bvh1.update(millis());
-  bvh2.update(millis());
-  bvh3.update(millis());
-  bvh1.draw();
-  bvh2.draw();
-  bvh3.draw();
-  popMatrix();
-
-  if (smokeTest && frameCount >= 10) {
-    println("SMOKE_TEST_OK frames=" + frameCount + " motions=3");
-    exit();
+  float time = run.seconds();
+  background(8, 13, 23);
+  float distance = max(650, 900.0 * height / width);
+  perspective(PI / 3, float(width) / height, 1, max(3000, distance + 1500));
+  camera(distance * sin(orbit), -90, distance * cos(orbit), 0, -5, 0, 0, 1, 0);
+  stroke(39, 52, 64);
+  strokeWeight(1);
+  for (int x = -450; x <= 450; x += 50) line(x, 145, -250, x, 145, 250);
+  for (int z = -250; z <= 250; z += 50) line(-450, 145, z, 450, 145, z);
+  for (int i = 0; i < dancers.size(); i++) {
+    PBvh dancer = dancers.get(i);
+    dancer.update(time);
+    pushMatrix();
+    translate((i - 1) * 240, 0, 0);
+    shape(dancer.bones);
+    shape(dancer.joints);
+    popMatrix();
   }
+  if (showHelp) {
+    hint(DISABLE_DEPTH_TEST);
+    camera();
+    fill(225, 233, 236);
+    text("PERFUME  /  POINT SKELETONS", 38, 43);
+    fill(126, 145, 160);
+    text("PShape + PVector   /   three original BVH recordings", 38, 66);
+    text("SPACE pause     drag orbit     R reset     H labels     S screenshot", 38, height - 32);
+    hint(ENABLE_DEPTH_TEST);
+  }
+  run.finishFrame("p5f_sample", 3);
+}
+
+void mouseDragged() { orbit += (mouseX - pmouseX) * 0.006; }
+void keyPressed() {
+  if (key == ' ') run.togglePause();
+  if (key == 'r' || key == 'R') { run.reset(); orbit = 0; }
+  if (key == 'h' || key == 'H') showHelp = !showHelp;
+  if (key == 's' || key == 'S') saveFrame("captures/points-####.png");
 }

@@ -55,25 +55,20 @@ jobs:
           mkdir -p "${RUNNER_TEMP}/processing-4.5.6"
           unzip -q "${RUNNER_TEMP}/processing.zip" -d "${RUNNER_TEMP}/processing-4.5.6"
 
-      - name: Compile the PDE sketch with Processing 4.5.6
+      - name: Compile and render all sketches; reject invalid and missing shaders
         run: |
           PROCESSING_BIN=$(find "${RUNNER_TEMP}/processing-4.5.6" -type f \( -name processing -o -name Processing \) -print -quit)
           test -n "${PROCESSING_BIN}"
           chmod +x "${PROCESSING_BIN}"
-          "${PROCESSING_BIN}" cli \
-            --sketch="${GITHUB_WORKSPACE}/p5f_sample" \
-            --output="${RUNNER_TEMP}/p5f-sample-build" \
-            --force \
-            --build
+          xvfb-run --auto-servernum ./scripts/verify-sketches.sh \
+            "${PROCESSING_BIN}" "${RUNNER_TEMP}/sketch-verification"
 
-      - name: Run a ten-frame P3D smoke test
-        run: |
-          set -o pipefail
-          PROCESSING_BIN=$(find "${RUNNER_TEMP}/processing-4.5.6" -type f \( -name processing -o -name Processing \) -print -quit)
-          timeout 30s xvfb-run --auto-servernum "${PROCESSING_BIN}" cli \
-            --sketch="${GITHUB_WORKSPACE}/p5f_sample" \
-            --output="${RUNNER_TEMP}/p5f-sample-run" \
-            --force \
-            --run \
-            --smoke-test | tee "${RUNNER_TEMP}/p5f-sample-smoke.log"
-          grep -q "SMOKE_TEST_OK" "${RUNNER_TEMP}/p5f-sample-smoke.log"
+      - name: Preserve rendered frames and runtime logs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: processing-render-verification
+          path: |
+            ${{ runner.temp }}/sketch-verification/**/frame.png
+            ${{ runner.temp }}/sketch-verification/**/runtime.log
+          if-no-files-found: warn
