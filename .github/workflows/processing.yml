@@ -55,7 +55,10 @@ jobs:
           mkdir -p "${RUNNER_TEMP}/processing-4.5.6"
           unzip -q "${RUNNER_TEMP}/processing.zip" -d "${RUNNER_TEMP}/processing-4.5.6"
 
-      - name: Compile and render all sketches; reject invalid and missing shaders
+      - name: Test isolated G1 invalid-data fixture creation
+        run: python3 -m unittest discover -s tests/g1 -v
+
+      - name: Compile and render four sketches; reject invalid shaders and G1 data
         run: |
           PROCESSING_BIN=$(find "${RUNNER_TEMP}/processing-4.5.6" -type f \( -name processing -o -name Processing \) -print -quit)
           test -n "${PROCESSING_BIN}"

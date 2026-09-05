@@ -2,13 +2,16 @@
 
 [![Processing 4](https://github.com/perfume-dev/example-processing/actions/workflows/processing.yml/badge.svg)](https://github.com/perfume-dev/example-processing/actions/workflows/processing.yml)
 
-Three small, runnable motion-visualization sketches for Processing 4.5.6. The original 2012 Perfume Global Site Project example now uses retained `PShape` geometry, `PVector` coordinates, typed collections, and an explicit playback clock. Two new shader studies turn the same BVH recordings into ribbons and contour fields.
+Four small, runnable motion-visualization sketches for Processing 4.5.6. The original 2012 Perfume Global Site Project example now uses retained `PShape` geometry, `PVector` coordinates, typed collections, and an explicit playback clock. Two new shader studies turn the same BVH recordings into ribbons and contour fields. G1 Motion Lab adds robot-reference playback and source skeleton comparison, without robot control. Its three references pass complete 40 Hz pose checks; [measured results and physical limitations](g1_motion_lab/VALIDATION.md) distinguish this from real-robot feasibility.
+
+![Actual G1 Motion Lab capture; kinematic references, physics not validated](docs/images/g1-motion-lab.png)
 
 | Sketch | What to learn | Renderer |
 | --- | --- | --- |
 | [`p5f_sample`](p5f_sample/p5f_sample.pde) | BVH playback; update a retained skeleton with `PShape.setVertex()` | P3D |
 | [`motion_ribbons`](motion_ribbons/) | Cached joint trajectories; triangle strips; vertex + fragment shaders | P3D |
 | [`motion_field`](motion_field/) | Send joint positions as uniforms; draw isocontours and interference in one fragment pass | P2D |
+| [`g1_motion_lab`](g1_motion_lab/) | Retained robot-link meshes, WXYZ transforms and original human skeleton comparison | P3D |
 
 ![Motion ribbons, rendered by Processing](docs/images/motion-ribbons.png)
 
@@ -22,18 +25,18 @@ These are actual rendered frames from the bundled recordings, at 16 seconds and 
 - macOS, Windows, or Linux with OpenGL support for the `P2D` and `P3D` renderers
 - No separately installed Processing libraries
 
-The bundled `code/BVHParser.jar` in each sketch is the same small library built from `p5f_sample/lib/src` against Processing Core 4.5.6 and Java 17. CI checks all copies against the reproducible Maven build. [Processing's `PShader`](https://processing.org/reference/PShader) exposes vertex and fragment stages; the ribbon topology is generated on the CPU. These sketches do not require a geometry-shader extension or a separately installed library.
+The bundled `code/BVHParser.jar` in the three BVH sketches is the same small library built from `p5f_sample/lib/src` against Processing Core 4.5.6 and Java 17. CI checks all copies against the reproducible Maven build. G1 Motion Lab reads precomputed JSON and needs no parser JAR. [Processing's `PShader`](https://processing.org/reference/PShader) exposes vertex and fragment stages; the ribbon topology is generated on the CPU. These sketches do not require a geometry-shader extension or a separately installed library.
 
 ## Run the sketch
 
 1. Install Processing 4.5.6.
 2. Download or clone this entire repository.
-3. Open `p5f_sample/p5f_sample.pde`, `motion_ribbons/motion_ribbons.pde`, or `motion_field/motion_field.pde` in Processing.
+3. Open the matching `.pde` in `p5f_sample`, `motion_ribbons`, `motion_field`, or `g1_motion_lab` in Processing.
 4. Press **Run**.
 
 The original BVH files remain in `p5f_sample/data/`. The new sketches resolve this directory relative to their own sketch directory, so the repository can live anywhere. For **Export Application** or a standalone sketch folder, copy `A_test.bvh`, `B_test.bvh`, and `C_test.bvh` into that sketch's own `data/` directory first; local files take priority. The original data has not been modified or duplicated in Git.
 
-All views recenter each dancer's root X/Z position and place the dancers side by side, retaining the recorded joint poses and vertical movement. This is a visualization layout, not the original stage formation. `MotionData.position()` (or `PBvh.stagePosition()`) is the small coordinate-conversion function to change when preserving the original translation is desired.
+The three BVH views recenter each dancer's root X/Z position and place the dancers side by side, retaining the recorded joint poses and vertical movement. This is a visualization layout, not the original stage formation. `MotionData.position()` (or `PBvh.stagePosition()`) is the small coordinate-conversion function to change when preserving the original translation is desired. G1 Motion Lab instead uses robot Z-up coordinates, removes only the initial horizontal origin and retains later travel; its source overlay receives the identical display translation.
 
 `Space` pauses; `R` restarts; `H` toggles labels; `S` saves a PNG under the sketch's `captures/` folder. Drag to orbit the 3D views. In the field sketch, `+` / `-` change contour density and `J` displays the driving joints. The views adapt to window size, and playback continues while another application has focus.
 
@@ -67,7 +70,7 @@ Use the official Processing executable (`Processing` on macOS, `processing` on L
 ./scripts/verify-sketches.sh /path/to/Processing /path/to/test-output
 ```
 
-On Linux without a desktop, prefix the command with `xvfb-run --auto-servernum`. Each run has a 60-second timeout. CI uses this same script, renders all three sketches at 8 and 16 seconds, checks that the two images differ, verifies nonempty framebuffers and shader link status, and confirms that missing or malformed shaders fail. PNGs and runtime logs are retained as workflow artifacts. The two helper tabs (`SketchRun.pde` and `MotionData.pde`) are kept byte-identical across their copies so that each sketch opens directly in the PDE without preprocessing or extra setup.
+On Linux without a desktop, prefix the command with `xvfb-run --auto-servernum`. Each run has a 60-second timeout. CI uses this same script, renders all four sketches at 8 and 16 seconds, checks that the two images differ, verifies nonempty framebuffers and shader link status, and confirms that missing or malformed shaders and G1 data fail. PNGs and runtime logs are retained as workflow artifacts. The BVH helper tabs (`SketchRun.pde` and the shader studies' `MotionData.pde`) are kept byte-identical across their copies so that each sketch opens directly in the PDE without preprocessing or extra setup. G1 Motion Lab has its own independent loader. Rendering tests do not approve the retargeting or physics of a motion package.
 
 For one deterministic capture (the parent output directory must exist):
 
@@ -88,3 +91,11 @@ The repository history credits [Satoru Higa](https://github.com/satoruhiga) for 
 ## License
 
 The newly written shader examples and test helper are MIT-licensed as scoped explicitly in [`LICENSE-new-examples`](LICENSE-new-examples), copyright 2026 Daito Manabe. This does **not** relicense the pre-existing source, original parser (including its copied JARs), or motion data. No license file was included with those original materials; they remain subject to their respective owners' copyright, and public availability does not by itself grant reuse rights.
+
+[G1 Motion Lab's new source](g1_motion_lab/LICENSE) is separately MIT-licensed,
+Copyright (c) 2026 Daito Manabe. Its robot geometry retains the upstream
+[Unitree BSD-3-Clause license](g1_motion_lab/data/MODEL-LICENSE). Neither license
+relicenses the original or derived dance recording. The viewer always states
+**KINEMATIC REFERENCE — PHYSICS NOT VALIDATED**. It contains no physics engine,
+learned policy or hardware transport, and does not establish that a physical
+robot can safely execute the recording.
