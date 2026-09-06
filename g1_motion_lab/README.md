@@ -1,5 +1,13 @@
 # G1 Motion Lab
 
+**Moved:** active development is now in
+[`perfume-dev/g1-motion-lab`](https://github.com/perfume-dev/g1-motion-lab).
+Use its [standalone Processing sketch](https://github.com/perfume-dev/g1-motion-lab/tree/main/examples/processing/g1_motion_lab),
+shared data, and companion openFrameworks/Python viewers for new work.
+This directory is retained as a historical snapshot for existing links and
+checkouts; the instructions below describe that snapshot. No original data or
+Git history has been removed. Neither version controls a physical robot.
+
 A Processing 4.5.6 viewer for three BVH-to-G1 kinematic reference clips. It draws
 the actual exported G1 body geometry with retained `PShape` meshes and composes
 body/world transforms with `PMatrix3D`. It does not perform retargeting locally
