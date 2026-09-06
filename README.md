@@ -2,6 +2,13 @@
 
 [![Processing 4](https://github.com/perfume-dev/example-processing/actions/workflows/processing.yml/badge.svg)](https://github.com/perfume-dev/example-processing/actions/workflows/processing.yml)
 
+**G1 Motion Lab now has its own home:**
+[`perfume-dev/g1-motion-lab`](https://github.com/perfume-dev/g1-motion-lab), with
+shared Perfume BVH/reference data and openFrameworks, Processing and Python viewers.
+The local G1 sketch remains a historical snapshot for existing links. New G1
+development, fixes and issues belong in the standalone repository; this
+collection continues to maintain the general graphics examples.
+
 Four small, runnable motion-visualization sketches for Processing 4.5.6. The original 2012 Perfume Global Site Project example now uses retained `PShape` geometry, `PVector` coordinates, typed collections, and an explicit playback clock. Two new shader studies turn the same BVH recordings into ribbons and contour fields. G1 Motion Lab adds robot-reference playback and source skeleton comparison, without robot control. Its three references pass complete 40 Hz pose checks; [measured results and physical limitations](g1_motion_lab/VALIDATION.md) distinguish this from real-robot feasibility.
 
 ![Actual G1 Motion Lab capture; kinematic references, physics not validated](docs/images/g1-motion-lab.png)
